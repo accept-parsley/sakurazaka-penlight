@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>櫻坂46 ペンライトカラー学習</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 花びらデコレーション -->
+  <div class="petal-bg" aria-hidden="true">
+    <span class="petal p1">🌸</span>
+    <span class="petal p2">🌸</span>
+    <span class="petal p3">🌸</span>
+    <span class="petal p4">🌸</span>
+    <span class="petal p5">🌸</span>
+  </div>
+
+  <!-- ヘッダー -->
+  <header class="header">
+    <div class="header-inner">
+      <h1 class="app-title">
+        <span class="title-sub">櫻坂46</span>
+        <span class="title-main">ペンライトカラー学習</span>
+      </h1>
+      <div class="streak-badge">
+        <span class="streak-icon">🔥</span>
+        <span class="streak-label">連続正解</span>
+        <span class="streak-count" id="streakCount">0</span>
+        <span class="streak-unit">問</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="main">
+
+    <!-- 出題カード -->
+    <section class="question-card" id="questionCard">
+      <div class="question-label">このメンバーのペンライトカラーは？</div>
+      <div class="member-name" id="memberName">読み込み中...</div>
+      <div class="penlight-icon" aria-hidden="true">
+        <div class="penlight-visual" id="penlightVisual">
+          <div class="penlight-stick" id="stick1"></div>
+          <div class="penlight-stick" id="stick2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 回答エリア -->
+    <section class="answer-section" id="answerSection">
+      <div class="answer-label">2色を選んでください</div>
+      <div class="selects-row">
+
+        <!-- カラー1 -->
+        <div class="select-wrapper">
+          <div class="select-label-small">カラー①</div>
+          <div class="select-container" id="container1">
+            <div class="color-swatch" id="swatch1"></div>
+            <select class="color-select" id="colorSelect1">
+              <option value="">-- 選択 --</option>
+            </select>
+            <div class="select-arrow">▾</div>
+          </div>
+        </div>
+
+        <!-- カラー2 -->
+        <div class="select-wrapper">
+          <div class="select-label-small">カラー②</div>
+          <div class="select-container" id="container2">
+            <div class="color-swatch" id="swatch2"></div>
+            <select class="color-select" id="colorSelect2">
+              <option value="">-- 選択 --</option>
+            </select>
+            <div class="select-arrow">▾</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 結果表示エリア -->
+    <section class="result-section hidden" id="resultSection">
+      <div class="result-banner" id="resultBanner">
+        <span class="result-icon" id="resultIcon"></span>
+        <span class="result-text" id="resultText"></span>
+      </div>
+      <div class="correct-colors-box" id="correctColorsBox">
+        <div class="correct-colors-label">✨ 正解のカラー</div>
+        <div class="correct-colors-row" id="correctColorsRow"></div>
+      </div>
+    </section>
+
+    <!-- アクションエリア -->
+    <section class="action-section">
+      <button class="btn btn-judge" id="btnJudge">判定する</button>
+      <button class="btn btn-next hidden" id="btnNext">次のメンバーへ →</button>
+    </section>
+
+  </main>
+
+  <!-- 正解時のエフェクト -->
+  <div class="confetti-container" id="confettiContainer" aria-hidden="true"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
