@@ -58,16 +58,12 @@
       </div>
     </section>
 
-    <!-- 色タイルグリッド ↔ 結果 (切り替え) -->
+    <!-- 色タイル ↔ 問題結果（切り替え） -->
     <div class="switchable-area">
-
-      <!-- 色タイル -->
       <section class="tile-section" id="tileSection">
         <div class="tile-hint">タップして2色を選択</div>
         <div class="tile-grid" id="tileGrid"></div>
       </section>
-
-      <!-- 結果（判定後に表示） -->
       <section class="result-section hidden" id="resultSection">
         <div class="result-banner" id="resultBanner">
           <span class="result-icon" id="resultIcon"></span>
@@ -78,7 +74,6 @@
           <div class="correct-colors-row" id="correctColorsRow"></div>
         </div>
       </section>
-
     </div>
 
     <!-- アクション -->
@@ -88,6 +83,25 @@
     </section>
 
   </main>
+
+  <!-- ===== 周回終了オーバーレイ ===== -->
+  <div class="round-overlay hidden" id="roundOverlay">
+    <div class="round-modal">
+      <div class="round-modal-header">
+        <div class="round-modal-emoji" id="roundEmoji">🌸</div>
+        <div class="round-modal-title" id="roundTitle">1周お疲れさまでした！</div>
+        <div class="round-score" id="roundScore"></div>
+      </div>
+
+      <!-- 不正解リスト -->
+      <div class="round-miss-section" id="roundMissSection">
+        <div class="round-miss-label">💦 間違えたメンバー</div>
+        <div class="round-miss-list" id="roundMissList"></div>
+      </div>
+
+      <button class="btn btn-restart" id="btnRestart">もう1周やってみる 🌸</button>
+    </div>
+  </div>
 
   <div class="confetti-container" id="confettiContainer" aria-hidden="true"></div>
 
