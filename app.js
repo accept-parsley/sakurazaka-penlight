@@ -61,17 +61,17 @@ const MEMBERS = [
 ];
 
 // ===== 状態 =====
-let currentMember  = null;
-let previousMember = null;
-let correctCount   = 0;   // 今周の正解数
-// selected = 最大2要素の配列。同じ色名を2つ格納可能。
-// selected[0] = スロット①, selected[1] = スロット②
+let currentMember = null;
+let correctCount  = 0;   // 今周の正解数
+let missedMembers = [];  // 今周の不正解メンバー { member, yourColors }
+
+// selected: 最大2要素。同じ色名を2つ格納可能。[0]=スロット① [1]=スロット②
 let selected = [];
 let judged   = false;
 
-// シャッフルデッキ管理
+// シャッフルデッキ
 let deck      = [];
-let deckIndex = 0;
+let deckIndex = 0;   // 次に出すインデックス（1〜MEMBERS.length の間を指す）
 
 /** Fisher-Yates シャッフル */
 function shuffle(arr) {
@@ -115,6 +115,14 @@ const correctColorsRow = document.getElementById('correctColorsRow');
 const btnJudge         = document.getElementById('btnJudge');
 const btnNext          = document.getElementById('btnNext');
 const confettiCont     = document.getElementById('confettiContainer');
+// 周回終了オーバーレイ
+const roundOverlay     = document.getElementById('roundOverlay');
+const roundEmoji       = document.getElementById('roundEmoji');
+const roundTitle       = document.getElementById('roundTitle');
+const roundScore       = document.getElementById('roundScore');
+const roundMissSection = document.getElementById('roundMissSection');
+const roundMissList    = document.getElementById('roundMissList');
+const btnRestart       = document.getElementById('btnRestart');
 
 // ===== 初期化 =====
 function init() {
@@ -124,7 +132,8 @@ function init() {
   deck      = buildDeck(null);
   deckIndex = 0;
   btnJudge.addEventListener('click', judge);
-  btnNext.addEventListener('click', nextMember);
+  btnNext.addEventListener('click', onNextClick);
+  btnRestart.addEventListener('click', startNewRound);
   nextMember();
 }
 
@@ -151,11 +160,6 @@ function buildTileGrid() {
 }
 
 // ===== タイルクリック =====
-// ルール:
-//   出現回数0 → 空きスロットに追加 (空きなければ最古をFIFO)
-//   出現回数1 & スロットに空きあり → 同じ色を2つ目に追加 (同色2選択)
-//   出現回数1 & スロットが埋まっている → その1つを削除
-//   出現回数2 → 両方クリア
 function onTileClick(colorName) {
   if (judged) return;
   const count = selected.filter(n => n === colorName).length;
@@ -164,21 +168,16 @@ function onTileClick(colorName) {
     if (selected.length < 2) {
       selected.push(colorName);
     } else {
-      // 両スロット埋まり → 先頭を外して追加
       selected.shift();
       selected.push(colorName);
     }
   } else if (count === 1) {
     if (selected.length < 2) {
-      // もう1スロット空き → 同じ色を2回目に追加
       selected.push(colorName);
     } else {
-      // 両スロット埋まり → この色を1つ削除
-      const idx = selected.indexOf(colorName);
-      selected.splice(idx, 1);
+      selected.splice(selected.indexOf(colorName), 1);
     }
   } else {
-    // count === 2 → 両方解除
     selected = [];
   }
 
@@ -186,14 +185,12 @@ function onTileClick(colorName) {
   refreshSlots();
 }
 
-// ===== タイルの見た目を更新 =====
+// ===== タイルの見た目 =====
 function refreshTiles() {
   document.querySelectorAll('.color-tile').forEach(tile => {
     const name  = tile.dataset.colorName;
     const badge = tile.querySelector('.tile-badge');
     const count = selected.filter(n => n === name).length;
-    const isFirst  = selected[0] === name;
-    const isSecond = selected[1] === name;
 
     tile.classList.remove('selected-1', 'selected-2', 'selected-both');
     badge.textContent = '';
@@ -202,7 +199,7 @@ function refreshTiles() {
       tile.classList.add('selected-both');
       badge.textContent = '①②';
     } else if (count === 1) {
-      if (isFirst && !isSecond) {
+      if (selected[0] === name && selected[1] !== name) {
         tile.classList.add('selected-1');
         badge.textContent = '①';
       } else {
@@ -213,12 +210,11 @@ function refreshTiles() {
   });
 }
 
-// ===== スロット表示を更新 =====
+// ===== スロット表示 =====
 function refreshSlots() {
   setSlot(slot1El, slotDot1, slotText1, selected[0], '① 未選択');
   setSlot(slot2El, slotDot2, slotText2, selected[1], '② 未選択');
 }
-
 function setSlot(slotEl, dotEl, textEl, colorName, placeholder) {
   if (colorName) {
     const c = COLOR_MAP[colorName];
@@ -234,7 +230,7 @@ function setSlot(slotEl, dotEl, textEl, colorName, placeholder) {
   }
 }
 
-// ===== ペンライト点灯 =====
+// ===== ペンライト =====
 function lightPenlight(name1, name2) {
   [[stick1El, name1], [stick2El, name2]].forEach(([el, name]) => {
     const c = COLOR_MAP[name];
@@ -248,7 +244,6 @@ function lightPenlight(name1, name2) {
     }
   });
 }
-
 function resetPenlight() {
   [stick1El, stick2El].forEach(el => {
     el.style.backgroundColor = '#ddd';
@@ -256,24 +251,14 @@ function resetPenlight() {
   });
 }
 
-// ===== 次のメンバーへ =====
+// ===== 次のメンバーへ（内部） =====
 function nextMember() {
   judged   = false;
   selected = [];
 
-  // デッキが終わったら新しい周を開始
-  if (deckIndex >= deck.length) {
-    const lastMember = deck[deck.length - 1];
-    deck         = buildDeck(lastMember);
-    deckIndex    = 0;
-    correctCount = 0;
-    updateCorrectCount();
-  }
-
   currentMember = deck[deckIndex];
   deckIndex++;
 
-  // メンバー名フェード切り替え
   memberNameEl.style.opacity = '0';
   setTimeout(() => {
     memberNameEl.textContent = currentMember.name;
@@ -282,20 +267,27 @@ function nextMember() {
 
   resetPenlight();
 
-  // タイルリセット
   document.querySelectorAll('.color-tile').forEach(t => {
     t.classList.remove('selected-1', 'selected-2', 'selected-both', 'judged');
     t.querySelector('.tile-badge').textContent = '';
   });
 
   refreshSlots();
-
-  // タイルを表示、結果を隠す
   tileSectionEl.classList.remove('hidden');
   resultSection.classList.add('hidden');
-
   btnJudge.classList.remove('hidden');
   btnNext.classList.add('hidden');
+}
+
+// ===== 「次のメンバーへ」ボタン押下 =====
+// 最後のメンバーを判定した後に押したら周回終了画面、それ以外は次問へ
+function onNextClick() {
+  if (deckIndex >= deck.length) {
+    // 1周完了 → 周回終了画面を表示
+    showRoundSummary();
+  } else {
+    nextMember();
+  }
 }
 
 // ===== 判定 =====
@@ -310,33 +302,35 @@ function judge() {
 
   judged = true;
 
-  // タイルを不活性化（選択済みは表示維持）
   document.querySelectorAll('.color-tile').forEach(t => t.classList.add('judged'));
 
-  // 順不同で正誤判定
   const answer  = [...selected].sort();
   const correct = [...currentMember.colors].sort();
   const isCorrect = answer[0] === correct[0] && answer[1] === correct[1];
 
-  // 正解色でペンライト点灯
   lightPenlight(currentMember.colors[0], currentMember.colors[1]);
 
-  // タイル → 結果 に切り替え
   tileSectionEl.classList.add('hidden');
-  showResult(isCorrect);
+  showQuestionResult(isCorrect);
 
-  // 正解数を更新
-  if (isCorrect) { correctCount++; launchConfetti(); }
+  if (isCorrect) {
+    correctCount++;
+    launchConfetti();
+  } else {
+    // 不正解記録（答えた色も一緒に保存）
+    missedMembers.push({ member: currentMember, yourColors: [...selected] });
+  }
   updateCorrectCount();
 
   btnJudge.classList.add('hidden');
+  // 最後の問題なら「結果を見る」、そうでなければ「次のメンバーへ」
+  btnNext.textContent = (deckIndex >= deck.length) ? '結果を見る 📋' : '次のメンバーへ →';
   btnNext.classList.remove('hidden');
 }
 
-// ===== 結果表示 =====
-function showResult(isCorrect) {
+// ===== 問題ごとの正誤表示 =====
+function showQuestionResult(isCorrect) {
   resultSection.classList.remove('hidden');
-
   if (isCorrect) {
     resultBanner.className = 'result-banner correct';
     resultIcon.textContent = '🌸';
@@ -346,8 +340,6 @@ function showResult(isCorrect) {
     resultIcon.textContent = '💦';
     resultText.textContent = '不正解…';
   }
-
-  // 正解色チップ — 2色それぞれ表示（同色でも2つ並べる）
   correctColorsRow.innerHTML = '';
   currentMember.colors.forEach(cName => {
     const c = COLOR_MAP[cName];
@@ -363,7 +355,75 @@ function showResult(isCorrect) {
   });
 }
 
-// ===== 正解数カウンター更新 =====
+// ===== 周回終了サマリー表示 =====
+function showRoundSummary() {
+  const total    = MEMBERS.length;
+  const isPerfect = correctCount === total;
+
+  // 絵文字・タイトル
+  roundEmoji.textContent = isPerfect ? '🎉' : correctCount >= total * 0.8 ? '🌸' : '💪';
+  roundTitle.textContent = isPerfect
+    ? '全問正解！完璧です！'
+    : `1周お疲れさまでした！`;
+
+  // スコア
+  roundScore.innerHTML = `
+    <span class="round-score-num">${correctCount}</span>
+    <span class="round-score-sep">/</span>
+    <span class="round-score-total">${total}</span>
+    <span class="round-score-label">正解</span>
+  `;
+
+  // 不正解リスト
+  if (missedMembers.length === 0) {
+    roundMissSection.classList.add('hidden');
+  } else {
+    roundMissSection.classList.remove('hidden');
+    roundMissList.innerHTML = '';
+    missedMembers.forEach(({ member, yourColors }) => {
+      const row = document.createElement('div');
+      row.className = 'miss-row';
+
+      // 正解チップ
+      const chipsHTML = member.colors.map(cName => {
+        const c = COLOR_MAP[cName];
+        return `
+          <div class="miss-chip">
+            <div class="miss-dot${c.code === '#ffffff' ? ' white-dot' : ''}"
+                 style="background-color:${c.code}"></div>
+            <span class="miss-color-name">${c.name}</span>
+          </div>`;
+      }).join('');
+
+      row.innerHTML = `
+        <span class="miss-name">${member.name}</span>
+        <div class="miss-colors">${chipsHTML}</div>
+      `;
+      roundMissList.appendChild(row);
+    });
+  }
+
+  // 全員正解なら大コンフェッティ
+  if (isPerfect) launchConfetti(80);
+
+  roundOverlay.classList.remove('hidden');
+}
+
+// ===== 新しい周を開始 =====
+function startNewRound() {
+  roundOverlay.classList.add('hidden');
+
+  const lastMember = deck[deck.length - 1];
+  deck         = buildDeck(lastMember);
+  deckIndex    = 0;
+  correctCount = 0;
+  missedMembers= [];
+  updateCorrectCount();
+
+  nextMember();
+}
+
+// ===== 正解数カウンター =====
 function updateCorrectCount() {
   correctCountEl.textContent = correctCount;
   correctCountEl.classList.remove('bump');
@@ -373,23 +433,22 @@ function updateCorrectCount() {
 }
 
 // ===== コンフェッティ =====
-function launchConfetti() {
+function launchConfetti(count = 50) {
   confettiCont.innerHTML = '';
   const palette = ['#da70d6','#ff69b4','#fffacd','#b0e0e6','#98fb98','#ffffff','#f5d0f3'];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
     el.className = 'confetti-piece';
     el.style.left              = Math.random() * 100 + 'vw';
     el.style.animationDuration = (.55 + Math.random() * .85) + 's';
-    el.style.animationDelay    = (Math.random() * .45) + 's';
+    el.style.animationDelay    = (Math.random() * .5) + 's';
     el.style.backgroundColor   = palette[Math.floor(Math.random() * palette.length)];
     el.style.transform         = `rotate(${Math.random() * 360}deg)`;
     const sz = 5 + Math.random() * 8;
-    el.style.width  = sz + 'px';
-    el.style.height = sz + 'px';
+    el.style.width = sz + 'px'; el.style.height = sz + 'px';
     confettiCont.appendChild(el);
   }
-  setTimeout(() => { confettiCont.innerHTML = ''; }, 2400);
+  setTimeout(() => { confettiCont.innerHTML = ''; }, 2600);
 }
 
 // ===== シェイク =====
@@ -406,15 +465,15 @@ function showToast(msg) {
   t.className = 'sc-toast';
   t.textContent = msg;
   Object.assign(t.style, {
-    position: 'fixed', bottom: '90px', left: '50%',
-    transform: 'translateX(-50%)',
-    background: 'rgba(26,26,46,.88)', color: '#fff',
-    padding: '10px 20px', borderRadius: '50px',
-    fontSize: '.82rem', fontWeight: '600',
-    fontFamily: 'var(--font-sans)',
-    zIndex: '9999', whiteSpace: 'nowrap',
-    boxShadow: '0 4px 16px rgba(0,0,0,.25)',
-    animation: 'toastIn .2s ease',
+    position:'fixed', bottom:'90px', left:'50%',
+    transform:'translateX(-50%)',
+    background:'rgba(26,26,46,.88)', color:'#fff',
+    padding:'10px 20px', borderRadius:'50px',
+    fontSize:'.82rem', fontWeight:'600',
+    fontFamily:'var(--font-sans)',
+    zIndex:'9999', whiteSpace:'nowrap',
+    boxShadow:'0 4px 16px rgba(0,0,0,.25)',
+    animation:'toastIn .2s ease',
   });
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 1800);
@@ -425,15 +484,15 @@ function injectKeyframes() {
   const s = document.createElement('style');
   s.textContent = `
     @keyframes shake {
-      0%,100%{ transform: translateX(0); }
-      20%    { transform: translateX(-6px); }
-      40%    { transform: translateX(6px);  }
-      60%    { transform: translateX(-4px); }
-      80%    { transform: translateX(4px);  }
+      0%,100%{ transform:translateX(0); }
+      20%    { transform:translateX(-6px); }
+      40%    { transform:translateX(6px);  }
+      60%    { transform:translateX(-4px); }
+      80%    { transform:translateX(4px);  }
     }
     @keyframes toastIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-      to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+      from { opacity:0; transform:translateX(-50%) translateY(6px); }
+      to   { opacity:1; transform:translateX(-50%) translateY(0);   }
     }
   `;
   document.head.appendChild(s);
