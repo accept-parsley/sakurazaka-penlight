@@ -63,14 +63,39 @@ const MEMBERS = [
 // ===== 状態 =====
 let currentMember  = null;
 let previousMember = null;
-let streak         = 0;
+let correctCount   = 0;   // 今周の正解数
 // selected = 最大2要素の配列。同じ色名を2つ格納可能。
 // selected[0] = スロット①, selected[1] = スロット②
 let selected = [];
 let judged   = false;
 
+// シャッフルデッキ管理
+let deck      = [];
+let deckIndex = 0;
+
+/** Fisher-Yates シャッフル */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** 新しい1周分のデッキを生成。前周末尾と先頭が被らないよう調整 */
+function buildDeck(avoidFirst) {
+  let d = shuffle(MEMBERS);
+  if (avoidFirst && d[0] === avoidFirst) {
+    const swapIdx = d.findIndex(m => m !== avoidFirst);
+    if (swapIdx > 0) [d[0], d[swapIdx]] = [d[swapIdx], d[0]];
+  }
+  return d;
+}
+
 // ===== DOM =====
-const streakCountEl    = document.getElementById('streakCount');
+const correctCountEl   = document.getElementById('correctCount');
+const correctTotalEl   = document.getElementById('correctTotal');
 const memberNameEl     = document.getElementById('memberName');
 const stick1El         = document.getElementById('stick1');
 const stick2El         = document.getElementById('stick2');
@@ -95,6 +120,9 @@ const confettiCont     = document.getElementById('confettiContainer');
 function init() {
   injectKeyframes();
   buildTileGrid();
+  correctTotalEl.textContent = MEMBERS.length;
+  deck      = buildDeck(null);
+  deckIndex = 0;
   btnJudge.addEventListener('click', judge);
   btnNext.addEventListener('click', nextMember);
   nextMember();
@@ -233,10 +261,17 @@ function nextMember() {
   judged   = false;
   selected = [];
 
-  // 前回と異なるメンバーを選ぶ
-  const pool = MEMBERS.filter(m => m !== previousMember);
-  currentMember  = pool[Math.floor(Math.random() * pool.length)];
-  previousMember = currentMember;
+  // デッキが終わったら新しい周を開始
+  if (deckIndex >= deck.length) {
+    const lastMember = deck[deck.length - 1];
+    deck         = buildDeck(lastMember);
+    deckIndex    = 0;
+    correctCount = 0;
+    updateCorrectCount();
+  }
+
+  currentMember = deck[deckIndex];
+  deckIndex++;
 
   // メンバー名フェード切り替え
   memberNameEl.style.opacity = '0';
@@ -290,10 +325,9 @@ function judge() {
   tileSectionEl.classList.add('hidden');
   showResult(isCorrect);
 
-  // 連続正解更新
-  streak = isCorrect ? streak + 1 : 0;
-  updateStreak();
-  if (isCorrect) launchConfetti();
+  // 正解数を更新
+  if (isCorrect) { correctCount++; launchConfetti(); }
+  updateCorrectCount();
 
   btnJudge.classList.add('hidden');
   btnNext.classList.remove('hidden');
@@ -329,13 +363,13 @@ function showResult(isCorrect) {
   });
 }
 
-// ===== ストリーク更新 =====
-function updateStreak() {
-  streakCountEl.textContent = streak;
-  streakCountEl.classList.remove('bump');
-  void streakCountEl.offsetWidth;
-  streakCountEl.classList.add('bump');
-  setTimeout(() => streakCountEl.classList.remove('bump'), 260);
+// ===== 正解数カウンター更新 =====
+function updateCorrectCount() {
+  correctCountEl.textContent = correctCount;
+  correctCountEl.classList.remove('bump');
+  void correctCountEl.offsetWidth;
+  correctCountEl.classList.add('bump');
+  setTimeout(() => correctCountEl.classList.remove('bump'), 260);
 }
 
 // ===== コンフェッティ =====
